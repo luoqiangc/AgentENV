@@ -1016,6 +1016,13 @@ tbody tr:hover {
   border-radius: 4.48px;
   font-size: 8.96px;
 }
+.snapshot-actions {
+  display: flex;
+  gap: 10px;
+}
+.snapshot-actions .secondary {
+  flex: 1;
+}
 .snapshot-content {
   padding: 24.64px 14.56px 13.44px;
 }

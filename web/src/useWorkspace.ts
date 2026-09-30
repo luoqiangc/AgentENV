@@ -44,7 +44,6 @@ export function useWorkspace(demo: boolean, enabled: boolean) {
         id: s.snapshotID,
         name: s.names[0] || s.snapshotID,
         image: s.imageRef || 'Snapshot',
-        size: 'Size unavailable',
         cpu: s.cpuCount,
         memory: s.memoryMB,
         created: s.createdAt,

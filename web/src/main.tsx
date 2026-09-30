@@ -156,6 +156,7 @@ function App() {
   const [selected, setSelected] = useState<string | null>(null)
   const [selectedVolume, setSelectedVolume] = useState<Volume | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Sandbox | null>(null)
+  const [deleteSnapshot, setDeleteSnapshot] = useState<Snapshot | null>(null)
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [globalQuery, setGlobalQuery] = useState('')
@@ -927,7 +928,9 @@ function App() {
                         <span className="snapshot-layer layer-front">
                           <Layers size={30} strokeWidth={1.2} />
                         </span>
-                        <span className="snapshot-size">{s.size}</span>
+                        {s.size && (
+                          <span className="snapshot-size">{s.size}</span>
+                        )}
                       </div>
                       <div className="snapshot-content">
                         <span className="eyebrow">{s.image}</span>
@@ -943,13 +946,26 @@ function App() {
                             {memoryLabel(s.memory)}
                           </span>
                         </div>
-                        <button
-                          className="button secondary full-width"
-                          onClick={() => openCreate(s.image, s)}
-                        >
-                          <Play size={15} />
-                          Launch sandbox
-                        </button>
+                        <div className="snapshot-actions">
+                          <button
+                            className="button secondary"
+                            onClick={() => openCreate(s.image, s)}
+                          >
+                            <Play size={15} />
+                            Launch sandbox
+                          </button>
+                          <button
+                            className="button danger"
+                            aria-label={`Delete snapshot ${s.name}`}
+                            title="Delete snapshot"
+                            onClick={() => {
+                              setActionError('')
+                              setDeleteSnapshot(s)
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     </article>
                   ))}
@@ -1456,6 +1472,55 @@ function App() {
               <dd>{selectedVolume.mounted ?? 'Not mounted'}</dd>
             </div>
           </dl>
+        </Dialog>
+      )}
+      {deleteSnapshot && (
+        <Dialog
+          title="Delete snapshot?"
+          onClose={() => {
+            if (!pending) setDeleteSnapshot(null)
+          }}
+        >
+          <p className="dialog-description">
+            Delete <strong>{deleteSnapshot.name}</strong> permanently? You will
+            no longer be able to launch from this checkpoint. Existing sandboxes
+            keep running.
+          </p>
+          {actionError && (
+            <p className="form-error" role="alert">
+              {actionError}
+            </p>
+          )}
+          <div className="dialog-footer">
+            <button
+              className="button secondary"
+              disabled={pending}
+              onClick={() => setDeleteSnapshot(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="button danger"
+              disabled={pending}
+              onClick={async () => {
+                if (!demo) {
+                  const ok = await perform(
+                    () => api.deleteSnapshot(deleteSnapshot.id),
+                    `${deleteSnapshot.name} deleted.`,
+                  )
+                  if (ok) setDeleteSnapshot(null)
+                  return
+                }
+                setSnapshots((all) =>
+                  all.filter((s) => s.id !== deleteSnapshot.id),
+                )
+                notify(`${deleteSnapshot.name} deleted from the demo.`)
+                setDeleteSnapshot(null)
+              }}
+            >
+              {pending ? 'Deleting…' : 'Delete snapshot'}
+            </button>
+          </div>
         </Dialog>
       )}
       {deleteTarget && (

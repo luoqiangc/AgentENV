@@ -130,6 +130,11 @@ export const api = {
     request<void>(`/dashboard/api/templates/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }),
+  // AgentENV's template deletion endpoint also deletes sandbox snapshots.
+  deleteSnapshot: (id: string) =>
+    request<void>(`/dashboard/api/templates/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
   session: (signal?: AbortSignal) =>
     request<{ authenticated: boolean; expiresAt: string }>(
       '/dashboard/session',

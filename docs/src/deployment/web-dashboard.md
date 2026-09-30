@@ -132,7 +132,11 @@ Append `?demo=1` to use the separate, browser-only sample workspace. Demo comman
 never reach a backend. Reloading restores the samples.
 
 Live workspace lists follow API pagination and refresh every ten seconds.
-Snapshots display no storage size when the API does not report it; volume usage
+Snapshots omit the size badge when the API does not report actual storage usage;
+`diskSizeMB` is provisioned capacity, not snapshot bytes. Snapshot cards support
+deletion with confirmation and retain the entry when deletion fails. The current
+runtime deletes snapshot records through its compatible template deletion endpoint.
+Volume usage
 is likewise shown as unavailable. The current UI reads volume details but does
 not create or delete volumes. Newly created sandboxes auto-pause after five
 minutes; resuming uses a five-minute timeout. Snapshot launches inherit their

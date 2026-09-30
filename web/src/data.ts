@@ -14,7 +14,7 @@ export type Snapshot = {
   id: string
   name: string
   image: string
-  size: string
+  size?: string
   created: string
   cpu: number
   memory: number
