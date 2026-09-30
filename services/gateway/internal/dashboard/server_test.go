@@ -64,6 +64,26 @@ func login(t *testing.T, client *http.Client, target string) {
 	}
 }
 
+func TestColdStartWaitsBeyondShellHandshakeTimeout(t *testing.T) {
+	server, browser, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/sandboxes-cold" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		// Image preparation finishes before the API can send response headers.
+		time.Sleep(100 * time.Millisecond)
+		writeJSON(w, map[string]string{"sandboxID": "slow-image-sandbox"})
+	}))
+	// Scale down the shell handshake deadline to keep the regression fast.
+	server.streamClient.Transport.(*http.Transport).ResponseHeaderTimeout = 20 * time.Millisecond
+	login(t, client, browser.URL)
+	response := request(t, client, "POST", browser.URL+"/dashboard/api/sandboxes-cold", `{"image":"python:3.12"}`, testOrigin)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("cold start was cut short: HTTP %d %s", response.StatusCode, body)
+	}
+}
+
 func TestSessionAndProxyIsolation(t *testing.T) {
 	calls := 0
 	server, browser, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

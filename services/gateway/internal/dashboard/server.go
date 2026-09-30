@@ -74,13 +74,17 @@ func New(options Options) (*Server, error) {
 		return nil, errors.New("dashboard assets_dir must contain a built index.html; run npm run build in web/")
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.ResponseHeaderTimeout = 15 * time.Second
 	transport.Proxy = nil // Runtime traffic must not pass through an environment HTTP proxy.
+	// Cold starts may prepare an image before sending any headers. Let the
+	// control-plane client's full request timeout cover that work; only shell
+	// handshakes need the shorter response-header deadline.
+	streamTransport := transport.Clone()
+	streamTransport.ResponseHeaderTimeout = 15 * time.Second
 	noRedirect := func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
 	return &Server{
 		upstream: upstream, assets: assets, origin: strings.TrimRight(origin.String(), "/"), secure: origin.Scheme == "https", apiKey: options.APIKey,
 		client:       &http.Client{Transport: transport, Timeout: 5 * time.Minute, CheckRedirect: noRedirect},
-		streamClient: &http.Client{Transport: transport, CheckRedirect: noRedirect},
+		streamClient: &http.Client{Transport: streamTransport, CheckRedirect: noRedirect},
 		sessions:     make(map[[32]byte]*session),
 	}, nil
 }
