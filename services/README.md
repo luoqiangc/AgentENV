@@ -17,6 +17,14 @@ Go implementation of a distributed Gateway and pluggable Scheduler for AgentENV.
 - Scheduler observes node health and sandbox roster from heartbeats, and drops expired sandbox-to-node bindings on heartbeat, node unregistration, or lookup.
 - HTTP and WebSocket forwarding.
 
+## Web Dashboard
+
+The gateway also has an optional browser-facing mode with API-key login sessions,
+static frontend hosting and an envd PTY WebSocket bridge. It can connect directly
+to one runtime without a scheduler, or use an existing cluster gateway upstream.
+See [Web Dashboard deployment](../docs/src/deployment/web-dashboard.md) and
+[`config/dashboard.json`](config/dashboard.json). The default gateway mode is unchanged.
+
 ## Header compatibility
 
 Gateway treats these headers as sandbox-routing markers:

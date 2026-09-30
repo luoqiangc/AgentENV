@@ -15,6 +15,7 @@
 
 # Deployment
 
+- [Web Dashboard](./deployment/web-dashboard.md)
 - [Docker (Single Node)](./deployment/docker.md)
 - [Docker Compose (Multi-Node Simulation)](./deployment/docker-compose.md)
 - [Static Multi-Node (Without Kubernetes)](./deployment/static-multi-node.md)

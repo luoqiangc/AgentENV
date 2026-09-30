@@ -603,3 +603,16 @@ func TestLoadRejectsIncompleteKubernetesSchedulerDiscoveryConfig(t *testing.T) {
 		t.Fatal("expected load to fail for incomplete kubernetes discovery config")
 	}
 }
+
+func TestDashboardModeDoesNotRequireScheduler(t *testing.T) {
+	cfg := defaultConfig("gateway")
+	cfg.Gateway.SchedulerAddr = ""
+	cfg.Gateway.Dashboard = &DashboardConfig{Upstream: "http://127.0.0.1:8000", AssetsDir: "../web/dist", PublicOrigin: "http://localhost:8080"}
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Gateway.Dashboard.AssetsDir = ""
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("accepted incomplete dashboard config")
+	}
+}

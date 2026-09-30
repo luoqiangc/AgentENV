@@ -155,14 +155,23 @@ func parseSchedulerDuration(raw json.RawMessage, field string) (time.Duration, e
 	return 0, fmt.Errorf("%s must be a duration string like \"30s\"", field)
 }
 
+// DashboardConfig selects a browser gateway backed by one runtime or an
+// existing cluster gateway. Omitting it preserves the scheduler-based gateway.
+type DashboardConfig struct {
+	Upstream     string `json:"upstream"`
+	AssetsDir    string `json:"assets_dir"`
+	PublicOrigin string `json:"public_origin"`
+}
+
 type GatewayConfig struct {
-	HTTPListenAddr         string        `json:"http_listen_addr"`
-	MetricsListenAddr      string        `json:"metrics_listen_addr"`
-	SchedulerAddr          string        `json:"scheduler_addr"`
-	QueryOnlySchedulerAddr string        `json:"query_only_scheduler_addr"`
-	RequestTimeout         time.Duration `json:"request_timeout"`
-	ForwardResponseSize    int64         `json:"forward_response_size"`
-	SandboxProxyDomains    []string      `json:"sandbox_proxy_domains"`
+	Dashboard              *DashboardConfig `json:"dashboard,omitempty"`
+	HTTPListenAddr         string           `json:"http_listen_addr"`
+	MetricsListenAddr      string           `json:"metrics_listen_addr"`
+	SchedulerAddr          string           `json:"scheduler_addr"`
+	QueryOnlySchedulerAddr string           `json:"query_only_scheduler_addr"`
+	RequestTimeout         time.Duration    `json:"request_timeout"`
+	ForwardResponseSize    int64            `json:"forward_response_size"`
+	SandboxProxyDomains    []string         `json:"sandbox_proxy_domains"`
 	// DebugMode enables debug-only behaviors in the gateway such as exposing
 	// the backend node id on proxied responses. It is off by default.
 	DebugMode bool `json:"debug_mode"`
@@ -170,14 +179,15 @@ type GatewayConfig struct {
 
 func (g *GatewayConfig) UnmarshalJSON(data []byte) error {
 	type wire struct {
-		HTTPListenAddr         *string         `json:"http_listen_addr"`
-		MetricsListenAddr      *string         `json:"metrics_listen_addr"`
-		SchedulerAddr          *string         `json:"scheduler_addr"`
-		QueryOnlySchedulerAddr *string         `json:"query_only_scheduler_addr"`
-		RequestTimeout         json.RawMessage `json:"request_timeout"`
-		ForwardResponseSize    *int64          `json:"forward_response_size"`
-		SandboxProxyDomains    *[]string       `json:"sandbox_proxy_domains"`
-		DebugMode              *bool           `json:"debug_mode"`
+		Dashboard              *DashboardConfig `json:"dashboard"`
+		HTTPListenAddr         *string          `json:"http_listen_addr"`
+		MetricsListenAddr      *string          `json:"metrics_listen_addr"`
+		SchedulerAddr          *string          `json:"scheduler_addr"`
+		QueryOnlySchedulerAddr *string          `json:"query_only_scheduler_addr"`
+		RequestTimeout         json.RawMessage  `json:"request_timeout"`
+		ForwardResponseSize    *int64           `json:"forward_response_size"`
+		SandboxProxyDomains    *[]string        `json:"sandbox_proxy_domains"`
+		DebugMode              *bool            `json:"debug_mode"`
 	}
 
 	parsed := wire{}
@@ -185,6 +195,9 @@ func (g *GatewayConfig) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if parsed.Dashboard != nil {
+		g.Dashboard = parsed.Dashboard
+	}
 	if parsed.HTTPListenAddr != nil {
 		g.HTTPListenAddr = *parsed.HTTPListenAddr
 	}
@@ -481,7 +494,12 @@ func (c Config) validate(schedulerQueryOnly bool) error {
 		if c.Gateway.MetricsListenAddr == "" {
 			return errors.New("gateway.metrics_listen_addr is required")
 		}
-		if c.Gateway.SchedulerAddr == "" {
+		if c.Gateway.Dashboard != nil {
+			d := c.Gateway.Dashboard
+			if d.Upstream == "" || d.AssetsDir == "" || d.PublicOrigin == "" {
+				return errors.New("gateway.dashboard requires upstream, assets_dir and public_origin")
+			}
+		} else if c.Gateway.SchedulerAddr == "" {
 			return errors.New("gateway.scheduler_addr is required")
 		}
 	}

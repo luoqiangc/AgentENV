@@ -1,0 +1,15 @@
+**
+!services/
+!services/**
+!web/
+!web/**
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/*.env
+**/*.log
+**/*test-results*
+**/playwright-report
+**/*.tsbuildinfo
+**/.git

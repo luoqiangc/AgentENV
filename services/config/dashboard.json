@@ -1,0 +1,13 @@
+{
+  "log_level": "info",
+  "log_format": "auto",
+  "gateway": {
+    "http_listen_addr": "127.0.0.1:8081",
+    "metrics_listen_addr": "127.0.0.1:19102",
+    "dashboard": {
+      "upstream": "http://127.0.0.1:8000",
+      "assets_dir": "../web/dist",
+      "public_origin": "http://127.0.0.1:8081"
+    }
+  }
+}

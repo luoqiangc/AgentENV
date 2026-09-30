@@ -34,3 +34,6 @@ scripts
 docs
 *.rst
 *.md
+
+# The standalone web prototype is not part of the Rust runtime image.
+/web
