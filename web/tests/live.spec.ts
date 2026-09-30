@@ -64,6 +64,7 @@ async function mockBackend(page: Page) {
           metrics: { cpuCount: 8, memoryTotalBytes: 16 * 1024 ** 3 },
         },
       ])
+    if (path.endsWith('/v2/templates')) return json([])
     if (path.endsWith('/snapshots')) return json([])
     if (path.endsWith('/volumes'))
       return json([

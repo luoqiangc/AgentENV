@@ -1,12 +1,4 @@
-import {
-  StrictMode,
-  Suspense,
-  lazy,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { StrictMode, Suspense, lazy, useEffect, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
@@ -56,15 +48,20 @@ import {
 import { APIError, api } from './api/client'
 import { useWorkspace } from './useWorkspace'
 import { Login } from './Login'
+import { Dialog } from './Dialog'
+import { Templates } from './Templates'
+import type { APITemplate } from './api/client'
 const LiveShell = lazy(() => import('./LiveShell'))
 const queryClient = new QueryClient()
 import { WebShell } from './WebShell'
 
-type Page = 'Overview' | 'Sandboxes' | 'Snapshots' | 'Volumes' | 'Settings'
+type Page =
+  'Overview' | 'Sandboxes' | 'Templates' | 'Snapshots' | 'Volumes' | 'Settings'
 type Modal = 'create' | 'search' | 'help' | 'reset' | null
 const pages: { name: Page; icon: LucideIcon }[] = [
   { name: 'Overview', icon: LayoutGrid },
   { name: 'Sandboxes', icon: Box },
+  { name: 'Templates', icon: Box },
   { name: 'Snapshots', icon: Layers },
   { name: 'Volumes', icon: HardDrive },
 ]
@@ -98,58 +95,6 @@ function Status({ state }: { state: string }) {
     </span>
   )
 }
-function Dialog({
-  title,
-  children,
-  onClose,
-  drawer = false,
-  wide = false,
-}: {
-  title: string
-  children: ReactNode
-  onClose: () => void
-  drawer?: boolean
-  wide?: boolean
-}) {
-  const ref = useRef<HTMLDialogElement>(null)
-  useLayoutEffect(() => {
-    const dialog = ref.current!
-    const opener = document.activeElement
-    dialog.showModal()
-    dialog.querySelector<HTMLElement>('[data-initial-focus]')?.focus()
-    return () => {
-      dialog.close()
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
-    }
-  }, [])
-  return (
-    <dialog
-      ref={ref}
-      className={
-        drawer ? 'dialog drawer' : wide ? 'dialog shell-dialog' : 'dialog'
-      }
-      onCancel={onClose}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-      aria-label={title}
-    >
-      <div className="dialog-body">
-        <div className="dialog-heading">
-          <h2>{title}</h2>
-          <button
-            className="icon-button"
-            aria-label="Close dialog"
-            onClick={onClose}
-          >
-            <X size={20} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </dialog>
-  )
-}
 function Empty({
   title,
   text,
@@ -178,6 +123,7 @@ function App() {
       {
         '/': 'Overview',
         '/sandboxes': 'Sandboxes',
+        '/templates': 'Templates',
         '/snapshots': 'Snapshots',
         '/volumes': 'Volumes',
         '/settings': 'Settings',
@@ -195,6 +141,8 @@ function App() {
     sandboxes,
     snapshots,
     volumes,
+    templates,
+    setTemplates,
     setSandboxes,
     setSnapshots,
     capacityCPU,
@@ -215,7 +163,12 @@ function App() {
   const [dark, setDark] = useState(false)
   const [mobileNav, setMobileNav] = useState(false)
   const [createImage, setCreateImage] = useState('python:3.12')
-  const [createSnapshot, setCreateSnapshot] = useState<Snapshot | null>(null)
+  const [createSource, setCreateSource] = useState<
+    | (Pick<Snapshot, 'id' | 'name' | 'image' | 'cpu' | 'memory'> & {
+        kind: 'snapshot' | 'template'
+      })
+    | null
+  >(null)
   const active = sandboxes.filter((s) => s.state === 'running')
   const cpu = active.reduce((n, s) => n + s.cpu, 0)
   const memory = active.reduce((n, s) => n + s.memory, 0)
@@ -289,7 +242,22 @@ function App() {
     snapshot: Snapshot | null = null,
   ) => {
     setCreateImage(image)
-    setCreateSnapshot(snapshot)
+    setCreateSource(snapshot ? { ...snapshot, kind: 'snapshot' } : null)
+    setModal('create')
+  }
+  const templateSource = (template: APITemplate) => ({
+    id: template.templateID,
+    name: template.names[0] || template.templateID,
+    image: `Template: ${template.names[0] || template.templateID}`,
+    cpu: template.cpuCount,
+    memory: template.memoryMB,
+    kind: 'template' as const,
+  })
+  const launchTemplate = (template: APITemplate) => {
+    const source = templateSource(template)
+    setCreateImage(source.image)
+    setCreateSource(source)
+    setActionError('')
     setModal('create')
   }
   const toggle = (sandbox: Sandbox) => {
@@ -345,9 +313,9 @@ function App() {
       const metadata = { name, 'dashboard.image': createImage }
       const success = await perform(
         () =>
-          createSnapshot
+          createSource
             ? api.launch({
-                templateID: createSnapshot.id,
+                templateID: createSource.id,
                 timeout: 300,
                 autoPause: true,
                 metadata,
@@ -378,8 +346,8 @@ function App() {
         cpu: Number(data.get('cpu')),
         memory: Number(data.get('memory')),
         created: new Date().toISOString(),
-        purpose: createSnapshot
-          ? `From ${createSnapshot.name}`
+        purpose: createSource
+          ? `From ${createSource.name}`
           : 'Personal workspace',
       },
       ...all,
@@ -677,35 +645,47 @@ function App() {
               <button onClick={() => void logout()}>Sign out</button>
             </div>
           )}
-          <div className="page-heading">
-            <div>
-              <div className="eyebrow">YOUR WORKSPACE, IN FOCUS</div>
-              <h1>
-                {page === 'Overview' ? 'A little room for big ideas.' : page}
-              </h1>
-              <p>
-                {
+          {page !== 'Templates' && (
+            <div className="page-heading">
+              <div>
+                <div className="eyebrow">YOUR WORKSPACE, IN FOCUS</div>
+                <h1>
+                  {page === 'Overview' ? 'A little room for big ideas.' : page}
+                </h1>
+                <p>
                   {
-                    Overview:
-                      'A clear view of your environments. And space for what’s next.',
-                    Sandboxes:
-                      'Isolated environments. Ready for whatever you’re building.',
-                    Snapshots:
-                      'Save a moment. Pick up right where you left off.',
-                    Volumes:
-                      'A lasting home for data, across every environment.',
-                    Settings: 'Make this workspace feel like yours.',
-                  }[page]
-                }
-              </p>
+                    {
+                      Overview:
+                        'A clear view of your environments. And space for what’s next.',
+                      Sandboxes:
+                        'Isolated environments. Ready for whatever you’re building.',
+                      Templates: 'Reusable environments, ready when you are.',
+                      Snapshots:
+                        'Save a moment. Pick up right where you left off.',
+                      Volumes:
+                        'A lasting home for data, across every environment.',
+                      Settings: 'Make this workspace feel like yours.',
+                    }[page]
+                  }
+                </p>
+              </div>
+              {page !== 'Settings' && (
+                <button className="button primary" onClick={() => openCreate()}>
+                  <Plus size={17} />
+                  New sandbox
+                </button>
+              )}
             </div>
-            {page !== 'Settings' && (
-              <button className="button primary" onClick={() => openCreate()}>
-                <Plus size={17} />
-                New sandbox
-              </button>
-            )}
-          </div>
+          )}
+          {page === 'Templates' && (
+            <Templates
+              templates={templates}
+              demo={demo}
+              onDemoChange={setTemplates}
+              onRefresh={workspace.refresh}
+              onLaunch={launchTemplate}
+            />
+          )}
           {page === 'Overview' && (
             <>
               <div className="metrics-grid">
@@ -1149,12 +1129,14 @@ function App() {
       </div>
       {modal === 'create' && (
         <Dialog
-          title={createSnapshot ? 'Launch from snapshot' : 'New sandbox'}
+          title={
+            createSource ? `Launch from ${createSource.kind}` : 'New sandbox'
+          }
           onClose={() => setModal(null)}
         >
           <p className="dialog-description">
-            {createSnapshot
-              ? `Create an environment from ${createSnapshot.name}.`
+            {createSource
+              ? `Create an environment from ${createSource.name}.`
               : 'A clean environment for your next task.'}
           </p>
           <div className="demo-callout">
@@ -1169,6 +1151,40 @@ function App() {
             </p>
           )}
           <form onSubmit={create}>
+            {!createSource || createSource.kind === 'template' ? (
+              <label className="form-field">
+                Starting point
+                <span className="select-wrap">
+                  <select
+                    aria-label="Starting point"
+                    value={createSource?.id ?? ''}
+                    onChange={(e) => {
+                      const template = templates.find(
+                        (t) => t.templateID === e.target.value,
+                      )
+                      if (template) {
+                        const source = templateSource(template)
+                        setCreateSource(source)
+                        setCreateImage(source.image)
+                      } else {
+                        setCreateSource(null)
+                        setCreateImage('python:3.12')
+                      }
+                    }}
+                  >
+                    <option value="">OCI image (cold start)</option>
+                    {templates
+                      .filter((t) => t.buildStatus === 'ready')
+                      .map((t) => (
+                        <option key={t.templateID} value={t.templateID}>
+                          {t.names[0] || t.templateID}
+                        </option>
+                      ))}
+                  </select>
+                  <ChevronDown size={16} />
+                </span>
+              </label>
+            ) : null}
             <label className="form-field">
               Sandbox name
               <input
@@ -1186,7 +1202,7 @@ function App() {
               <span className="select-wrap">
                 <select
                   value={createImage}
-                  disabled={Boolean(createSnapshot)}
+                  disabled={Boolean(createSource)}
                   onChange={(e) => setCreateImage(e.target.value)}
                 >
                   {!images.includes(createImage) && (
@@ -1199,22 +1215,21 @@ function App() {
                 <ChevronDown size={16} />
               </span>
             </label>
-            <div className="form-columns">
+            <div className="form-columns" key={createSource?.id ?? 'cold'}>
               <label className="form-field">
                 CPU
                 <span className="select-wrap">
                   <select
-                    disabled={!demo && Boolean(createSnapshot)}
+                    disabled={!demo && Boolean(createSource)}
                     name="cpu"
                     aria-label="CPU"
-                    defaultValue={createSnapshot?.cpu ?? 2}
+                    defaultValue={createSource?.cpu ?? 2}
                   >
-                    {createSnapshot &&
-                      ![1, 2, 4].includes(createSnapshot.cpu) && (
-                        <option value={createSnapshot.cpu}>
-                          {createSnapshot.cpu} vCPU
-                        </option>
-                      )}
+                    {createSource && ![1, 2, 4].includes(createSource.cpu) && (
+                      <option value={createSource.cpu}>
+                        {createSource.cpu} vCPU
+                      </option>
+                    )}
                     <option value="1">1 vCPU</option>
                     <option value="2">2 vCPU</option>
                     <option value="4">4 vCPU</option>
@@ -1226,17 +1241,17 @@ function App() {
                 Memory
                 <span className="select-wrap">
                   <select
-                    disabled={!demo && Boolean(createSnapshot)}
+                    disabled={!demo && Boolean(createSource)}
                     name="memory"
                     aria-label="Memory"
-                    defaultValue={createSnapshot?.memory ?? 1024}
+                    defaultValue={createSource?.memory ?? 1024}
                   >
-                    {createSnapshot &&
+                    {createSource &&
                       ![512, 1024, 2048, 4096].includes(
-                        createSnapshot.memory,
+                        createSource.memory,
                       ) && (
-                        <option value={createSnapshot.memory}>
-                          {memoryLabel(createSnapshot.memory)}
+                        <option value={createSource.memory}>
+                          {memoryLabel(createSource.memory)}
                         </option>
                       )}
                     <option value="512">512 MB</option>

@@ -42,6 +42,7 @@ Install Chromium once with `npx playwright install chromium` if needed.
 - `src/api/`: HTTP client and generated OpenAPI types.
 - `src/useWorkspace.ts`: paginated live queries and separate demo state.
 - `src/Login.tsx`: API-key exchange for a gateway session.
+- `src/Templates.tsx`: OCI template creation, build history/logs and management.
 - `src/LiveShell.tsx`: lazily loaded xterm.js WebSocket client.
 - `src/WebShell.tsx`, `src/data.ts`: explicit demo-only terminal and sample data.
 - `tests/`: browser tests for local interactions and mocked backend contracts.

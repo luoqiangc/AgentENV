@@ -1,6 +1,6 @@
 # Web Dashboard
 
-The dashboard manages sandboxes, snapshots and volumes through the existing
+The dashboard manages sandboxes, templates, snapshots and volumes through the existing
 AgentENV API. Its Web Shell uses a real envd PTY. The frontend lives in `web/`;
 the optional browser-facing mode is part of the Go gateway.
 
@@ -80,6 +80,22 @@ The browser cannot select an arbitrary upstream or forward guest routing
 headers. The gateway exposes only the management routes used by the dashboard,
 strips returned sandbox access tokens, and obtains the guest token itself when
 opening a shell.
+
+## Templates
+
+Open **Templates** to search environments, filter build status, inspect build
+history and paginated logs, or delete a template. **New template** imports an OCI
+image with a name, CPU count and memory size. Private images use the runtime's
+Docker credentials. Dockerfile uploads and BuildKit workflows are not exposed.
+
+Creation registers a template and starts its build. If starting fails, **Retry
+build** reuses the registered template. Builds continue in the runtime after the
+page closes; details poll active builds every 2.5 seconds and display failure
+reasons. Deletion conflicts are shown without removing the local entry.
+
+Use **Launch** on a ready template, or select it as the **Starting point** in
+**New sandbox**. Launches inherit the saved CPU and memory configuration. Deleting
+a template prevents future launches but does not stop existing sandboxes.
 
 ## Web Shell
 

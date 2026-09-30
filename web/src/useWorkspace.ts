@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { APIError, loadWorkspace } from './api/client'
-import { initialSandboxes, initialSnapshots, initialVolumes } from './data'
+import {
+  initialSandboxes,
+  initialSnapshots,
+  initialVolumes,
+  initialTemplates,
+} from './data'
 import type { Sandbox, Snapshot, Volume } from './data'
 
 export function useWorkspace(demo: boolean, enabled: boolean) {
   const [sampleSandboxes, setSandboxes] = useState(initialSandboxes)
   const [sampleSnapshots, setSnapshots] = useState(initialSnapshots)
+  const [sampleTemplates, setTemplates] = useState(initialTemplates)
   const client = useQueryClient()
   const live = useQuery({
     queryKey: ['workspace'],
@@ -65,6 +71,8 @@ export function useWorkspace(demo: boolean, enabled: boolean) {
     sandboxes,
     snapshots,
     volumes,
+    templates: demo ? sampleTemplates : (live.data?.templates ?? []),
+    setTemplates,
     setSandboxes,
     setSnapshots,
     live,
@@ -86,6 +94,7 @@ export function useWorkspace(demo: boolean, enabled: boolean) {
     reset: () => {
       setSandboxes(initialSandboxes)
       setSnapshots(initialSnapshots)
+      setTemplates(initialTemplates)
     },
   }
 }

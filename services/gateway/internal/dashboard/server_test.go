@@ -346,3 +346,45 @@ func TestEnvelopeBoundsAndErrors(t *testing.T) {
 		t.Fatalf("valid frame: %q %v", data, err)
 	}
 }
+
+func TestTemplateAPIRoutes(t *testing.T) {
+	for _, tc := range []struct {
+		method, path string
+		allowed      bool
+	}{
+		{"GET", "/v2/templates", true},
+		{"POST", "/v3/templates", true},
+		{"GET", "/templates/tpl-1", true},
+		{"DELETE", "/templates/tpl-1", true},
+		{"POST", "/v2/templates/tpl-1/builds/build-1", true},
+		{"GET", "/templates/tpl-1/builds/build-1/status", true},
+		{"POST", "/templates/tpl-1", false},
+		{"DELETE", "/v2/templates/tpl-1/builds/build-1", false},
+		{"GET", "/templates/tpl-1/builds/../status", false},
+		{"GET", "/templates/tpl-1/builds/build-1/status/extra", false},
+		{"GET", "/templates/..", false},
+		{"POST", "/v2/templates/tpl-1/builds/build-1/files", false},
+		{"POST", "/templates/tpl-1/builds/build-1/dockerfile", false},
+	} {
+		if got := allowedAPI(tc.method, tc.path); got != tc.allowed {
+			t.Errorf("%s %s: allowed=%v", tc.method, tc.path, got)
+		}
+	}
+	_, browser, client := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v2/templates/tpl-1/builds/build-1" {
+			t.Errorf("unexpected build request: %s %s", r.Method, r.URL.Path)
+		}
+		body, _ := io.ReadAll(r.Body)
+		if string(body) != `{"fromImage":"alpine:3.21"}` || r.Header.Get("X-API-Key") != testKey {
+			t.Error("build request body or authentication lost")
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	login(t, client, browser.URL)
+	response := request(t, client, "POST", browser.URL+"/dashboard/api/v2/templates/tpl-1/builds/build-1", `{"fromImage":"alpine:3.21"}`, testOrigin)
+	defer response.Body.Close()
+	body, _ := io.ReadAll(response.Body)
+	if response.StatusCode != http.StatusAccepted || len(body) != 0 {
+		t.Fatalf("empty accepted response changed: %d %q", response.StatusCode, body)
+	}
+}

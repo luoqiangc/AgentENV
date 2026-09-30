@@ -3,6 +3,11 @@ import type { components } from './schema'
 export type APISandbox = components['schemas']['ListedSandbox']
 export type APISnapshot = components['schemas']['SnapshotInfo']
 export type APIVolume = components['schemas']['Volume']
+export type APITemplate = components['schemas']['Template']
+export type APITemplateBuild = components['schemas']['TemplateBuild']
+export type APITemplateBuildInfo = components['schemas']['TemplateBuildInfo']
+export type TemplateReservation =
+  components['schemas']['TemplateRequestResponseV3']
 export type APINode = components['schemas']['Node']
 export type NewColdSandbox = components['schemas']['NewColdSandbox']
 export type NewSandbox = components['schemas']['NewSandboxV2']
@@ -42,10 +47,15 @@ export async function request<T>(
     )
   }
   if (response.status === 204) return undefined as T
-  return response.json() as Promise<T>
+  const body = await response.text()
+  return (body ? JSON.parse(body) : undefined) as T
 }
 
-async function listAll<T>(path: string, signal: AbortSignal): Promise<T[]> {
+async function listAll<T>(
+  path: string,
+  signal: AbortSignal,
+  field?: 'builds',
+): Promise<T[]> {
   const items: T[] = []
   const seen = new Set<string>()
   let token = ''
@@ -58,7 +68,8 @@ async function listAll<T>(path: string, signal: AbortSignal): Promise<T[]> {
     })
     if (!response.ok)
       throw new APIError(`${path}: ${await response.text()}`, response.status)
-    const page: T[] = await response.json()
+    const body = await response.json()
+    const page: T[] = field ? body[field] : body
     if (!Array.isArray(page)) throw new Error(`${path}: invalid list response`)
     items.push(...page)
     token = response.headers.get('X-Next-Token') || ''
@@ -74,16 +85,51 @@ export function loadWorkspace(signal: AbortSignal) {
     listAll<APISandbox>('/v2/sandboxes', signal),
     listAll<APISnapshot>('/snapshots', signal),
     listAll<APIVolume>('/volumes', signal),
+    listAll<APITemplate>('/v2/templates', signal),
     request<APINode[]>('/dashboard/api/nodes', { signal }),
-  ]).then(([sandboxes, snapshots, volumes, nodes]) => ({
+  ]).then(([sandboxes, snapshots, volumes, templates, nodes]) => ({
     sandboxes,
     snapshots,
     volumes,
+    templates,
     nodes,
   }))
 }
 
 export const api = {
+  reserveTemplate: (body: components['schemas']['TemplateBuildRequestV3']) =>
+    request<TemplateReservation>('/dashboard/api/v3/templates', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  startTemplateBuild: (templateID: string, buildID: string, image: string) =>
+    request<void>(
+      `/dashboard/api/v2/templates/${encodeURIComponent(templateID)}/builds/${encodeURIComponent(buildID)}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ fromImage: image }),
+      },
+    ),
+  templateBuilds: (id: string, signal: AbortSignal) =>
+    listAll<APITemplateBuild>(
+      `/templates/${encodeURIComponent(id)}`,
+      signal,
+      'builds',
+    ),
+  templateBuild: (
+    id: string,
+    buildID: string,
+    offset: number,
+    signal: AbortSignal,
+  ) =>
+    request<APITemplateBuildInfo>(
+      `/dashboard/api/templates/${encodeURIComponent(id)}/builds/${encodeURIComponent(buildID)}/status?logsOffset=${offset}&limit=100`,
+      { signal },
+    ),
+  deleteTemplate: (id: string) =>
+    request<void>(`/dashboard/api/templates/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
   session: (signal?: AbortSignal) =>
     request<{ authenticated: boolean; expiresAt: string }>(
       '/dashboard/session',

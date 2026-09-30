@@ -1,3 +1,5 @@
+import type { APITemplate } from './api/client'
+
 export type Sandbox = {
   id: string
   name: string
@@ -153,3 +155,22 @@ export const dateLabel = (date: string) =>
     hour: '2-digit',
     minute: '2-digit',
   })
+
+export const initialTemplates: APITemplate[] = [
+  {
+    templateID: 'tpl_python',
+    buildID: 'build_python',
+    names: ['python-workspace'],
+    cpuCount: 2,
+    memoryMB: 1024,
+    diskSizeMB: 2048,
+    public: false,
+    createdAt: '2026-09-30T08:00:00Z',
+    updatedAt: '2026-09-30T08:02:00Z',
+    lastSpawnedAt: null,
+    spawnCount: 0,
+    buildCount: 1,
+    envdVersion: 'demo',
+    buildStatus: 'ready',
+  },
+]

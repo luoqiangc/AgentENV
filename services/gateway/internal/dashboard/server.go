@@ -239,13 +239,22 @@ var resourceID = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
 // Only control-plane routes used by the dashboard are exposed. In particular,
 // browser-controlled proxy headers or arbitrary guest URLs are never forwarded.
 func allowedAPI(method, path string) bool {
-	if method == http.MethodGet {
-		return path == "/nodes" || path == "/v2/sandboxes" || path == "/snapshots" || path == "/volumes"
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	if len(parts) == 2 && parts[0] == "templates" && resourceID.MatchString(parts[1]) {
+		return method == http.MethodGet || method == http.MethodDelete
 	}
-	if method == http.MethodPost && (path == "/sandboxes-cold" || path == "/v2/sandboxes") {
+	if len(parts) == 5 && parts[0] == "templates" && resourceID.MatchString(parts[1]) && parts[2] == "builds" && resourceID.MatchString(parts[3]) && parts[4] == "status" {
+		return method == http.MethodGet
+	}
+	if len(parts) == 5 && parts[0] == "v2" && parts[1] == "templates" && resourceID.MatchString(parts[2]) && parts[3] == "builds" && resourceID.MatchString(parts[4]) {
+		return method == http.MethodPost
+	}
+	if method == http.MethodGet {
+		return path == "/v2/templates" || path == "/nodes" || path == "/v2/sandboxes" || path == "/snapshots" || path == "/volumes"
+	}
+	if method == http.MethodPost && (path == "/v3/templates" || path == "/sandboxes-cold" || path == "/v2/sandboxes") {
 		return true
 	}
-	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) == 2 && parts[0] == "sandboxes" && resourceID.MatchString(parts[1]) {
 		return method == http.MethodDelete
 	}
